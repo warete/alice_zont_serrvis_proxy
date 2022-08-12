@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 import atexit
 import time
 import win32gui, win32con
-
+import logging
+from logging.handlers import TimedRotatingFileHandler
 
 import zont
 import ya_device
@@ -15,6 +16,15 @@ load_dotenv()
 
 hide = win32gui.GetForegroundWindow()
 win32gui.ShowWindow(hide, win32con.SW_HIDE)
+
+logger = logging.getLogger("Rotating Log")
+logger.setLevel(logging.INFO)
+
+utils.check_work_dir()
+
+# add a rotating handler
+handler = TimedRotatingFileHandler(utils.get_logs_path(), when="h", interval=1, backupCount=5)
+logger.addHandler(handler)
 
 zont_params = {
     'device_id': os.getenv('ZONT_DEVICE_ID'),
@@ -32,12 +42,12 @@ YA_CLIENT_ID = str(os.getenv('YA_CLIENT_ID'))
 
 
 def check_them_zones():
-    print(time.strftime("%A, %d. %B %Y %I:%M:%S %p"))
+    logger.info(time.strftime("%A, %d. %B %Y %I:%M:%S %p"))
 
-    token = utils.get_token()
+    token = utils.get_token(logger)
 
     if token is False:
-        print('Без токена работа невозможна')
+        logger.error('Без токена работа невозможна')
         # todo: send notification
         return
 
@@ -48,21 +58,21 @@ def check_them_zones():
         zones_data = response['responses'][0]['thermostat_work']['zones']
         for zone_number, item in zones_data.items():
             worktime = item['worktime'][0][1]
-            print('Зона #{}, время работы {} сек'.format(zone_number, worktime))
+            logger.info('Зона #{}, время работы {} сек'.format(zone_number, worktime))
             if zone_number in zone_to_ya_device:
                 state = False if worktime < 60 else True
                 # Получаем текущее состояние устройств
                 current_state_response = ya_device.get_state(token, zone_to_ya_device[zone_number])
                 # Меняем состояние только если новое отличается от текущего
                 if current_state_response['capabilities'][0]['state']['value'] != state:
-                    print('alice item state change to', 'on' if state else 'off')
+                    logger.info('alice item state change to', 'on' if state else 'off')
                     ya_device.change_state(token, zone_to_ya_device[zone_number], state)
     else:
-        print('Error: ', response)
+        logger.error('Error: ', response)
 
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=check_them_zones, trigger="interval", seconds=5)
+scheduler.add_job(func=check_them_zones, trigger="interval", seconds=60)
 scheduler.start()
 
 # Shut down the scheduler when exiting the app
@@ -90,7 +100,7 @@ def set_token_action():
 
 @app.route('/app_response_token/<token>/', methods=['GET'])
 def app_response_token_action(token):
-    utils.write_token(token)
+    utils.write_token(token, logger)
     return 'Токен сохранен в файл {}'.format(utils.get_token_path())
 
 
