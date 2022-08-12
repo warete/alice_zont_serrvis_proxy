@@ -4,12 +4,17 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 import atexit
 import time
+import win32gui, win32con
+
 
 import zont
 import ya_device
 import utils
 
 load_dotenv()
+
+hide = win32gui.GetForegroundWindow()
+win32gui.ShowWindow(hide, win32con.SW_HIDE)
 
 zont_params = {
     'device_id': os.getenv('ZONT_DEVICE_ID'),
