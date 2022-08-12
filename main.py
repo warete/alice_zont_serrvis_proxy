@@ -23,6 +23,8 @@ zone_to_ya_device = {
     '4': os.getenv('ZONE_4_DEVICE_ID'),
 }
 
+YA_CLIENT_ID = str(os.getenv('YA_CLIENT_ID'))
+
 
 def check_them_zones():
     print(time.strftime("%A, %d. %B %Y %I:%M:%S %p"))
@@ -65,7 +67,14 @@ app = Flask(__name__)
 
 
 @app.route("/")
-def hello_world():
+def main_action():
+    auth_link = 'https://oauth.yandex.ru/authorize?response_type=token&client_id=' + YA_CLIENT_ID
+    return 'Для авторизации в приложении через Яндекс нужно перейти по ссылке <a href="{}">{}</a>'.format(auth_link,
+                                                                                                          auth_link)
+
+
+@app.route("/set_token")
+def set_token_action():
     return '''
     <script>
         var token = /access_token=([^&]+)/.exec(document.location.hash)[1];
@@ -75,9 +84,9 @@ def hello_world():
 
 
 @app.route('/app_response_token/<token>/', methods=['GET'])
-def app_response_token(token):
+def app_response_token_action(token):
     utils.write_token(token)
-    return token
+    return 'Токен сохранен в файл {}'.format(utils.get_token_path())
 
 
 if __name__ == '__main__':
